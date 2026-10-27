@@ -1,0 +1,17 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+
+# electron build output
+/dist-electron/
+
+# env
+.env*
+
+# misc
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts

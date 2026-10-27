@@ -1,0 +1,479 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-system);
+  --font-mono: var(--font-geist-mono);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-ring: var(--ring);
+}
+
+:root {
+  --radius: 0.375rem;
+
+  /* Dark theme only — Quick Notes is always dark */
+  --background: #191919;
+  --foreground: #ffffffcf;
+
+  /* Primary — warm golden yellow */
+  --primary: #c49a1a;
+  --primary-foreground: #191919;
+
+  /* Muted */
+  --muted-foreground: #9b9b9b;
+
+  /* Functional */
+  --destructive: #ff7369;
+  --border: #ffffff14;
+  --ring: #c49a1a;
+
+  /* ── Materials ──────────────────────────────────────────────
+     The window is vibrant (NSVisualEffectView, under-window). These
+     layers tint that material rather than replacing it, so the desktop
+     behind the window still reads through. Heavier = more structural:
+     chrome separates regions, elevated floats above content.          */
+  --material-window: rgba(22, 22, 24, 0.72);
+  --material-chrome: rgba(255, 255, 255, 0.035);
+  --material-elevated: rgba(32, 32, 35, 0.72);
+  --material-control: rgba(255, 255, 255, 0.055);
+  --material-control-hover: rgba(255, 255, 255, 0.09);
+  --material-control-active: rgba(255, 255, 255, 0.13);
+
+  /* Edges: a bright top edge reads as light catching the material */
+  --edge-highlight: rgba(255, 255, 255, 0.09);
+  --separator: rgba(255, 255, 255, 0.07);
+
+  /* Springs, critically damped: no overshoot on chrome that just appears */
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out-soft: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+
+  /* SF first: it ships optical sizing and tracking tables already */
+  /* No var() indirection here: --font-geist-sans is only defined on <body>,
+     so referencing it at :root makes the whole declaration invalid and the
+     text silently falls back to serif. */
+  --font-system:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Helvetica Neue", system-ui, sans-serif;
+}
+
+html,
+body {
+  background: transparent;
+  font-family: var(--font-system);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* The single tint over the native vibrancy. Nothing else in the app paints
+   an opaque background, or the material is lost. */
+.app-shell {
+  background: var(--material-window);
+}
+
+/* Press feedback belongs on pointer-down, and it has to be instant */
+button:active:not(:disabled),
+[role="button"]:active {
+  transform: scale(0.96);
+}
+
+button,
+[role="button"] {
+  transition: transform 100ms var(--ease-out-soft);
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  TYPOGRAPHY — tracking is size-specific, never one value    */
+/* ═══════════════════════════════════════════════════════════ */
+
+.type-title {
+  font-size: 13px;
+  font-weight: 590;
+  letter-spacing: -0.006em;
+  line-height: 1.3;
+}
+
+.type-body {
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: -0.003em;
+  line-height: 1.45;
+}
+
+/* Small text needs slightly positive tracking to stay legible */
+.type-meta {
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.008em;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+}
+
+.type-section {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  KEY CAPS                                                  */
+/* ═══════════════════════════════════════════════════════════ */
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 5px;
+  background: var(--material-control);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-top-color: var(--edge-highlight);
+  color: rgba(255, 255, 255, 0.55);
+  font-family: var(--font-system);
+  font-size: 11px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  ELEVATION — surfaces materialize, they don't just fade     */
+/* ═══════════════════════════════════════════════════════════ */
+
+.surface-elevated {
+  background: var(--material-elevated);
+  backdrop-filter: blur(30px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-top-color: var(--edge-highlight);
+  box-shadow:
+    0 12px 40px -8px rgba(0, 0, 0, 0.6),
+    0 2px 8px -2px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes materialize {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.materialize {
+  transform-origin: top center;
+  animation: materialize 260ms var(--ease-spring);
+}
+
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.scrim {
+  animation: scrim-in 200ms var(--ease-out-soft);
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  ACCESSIBILITY — three independent signals                 */
+/* ═══════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  .materialize {
+    animation: scrim-in 140ms var(--ease-out-soft);
+    transform: none;
+  }
+  button:active:not(:disabled),
+  [role="button"]:active {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .app-shell {
+    background: #17171a;
+  }
+  .surface-elevated {
+    background: #232326;
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --separator: rgba(255, 255, 255, 0.18);
+    --edge-highlight: rgba(255, 255, 255, 0.2);
+    --foreground: #ffffff;
+    --muted-foreground: #c8c8c8;
+  }
+  .surface-elevated {
+    background: #1c1c1f;
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  ELECTRON WINDOW DRAG                                      */
+/* ═══════════════════════════════════════════════════════════ */
+
+.app-drag {
+  -webkit-app-region: drag;
+}
+
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  TIPTAP EDITOR STYLES                                      */
+/* ═══════════════════════════════════════════════════════════ */
+
+.prose-notes .tiptap {
+  outline: none;
+  font-size: 13.5px;
+  line-height: 1.62;
+  letter-spacing: -0.004em;
+  color: var(--foreground);
+  min-height: 200px;
+  cursor: text;
+  caret-color: var(--primary);
+}
+
+.prose-notes .tiptap ::selection {
+  background: rgba(196, 154, 26, 0.26);
+}
+
+.prose-notes .tiptap * {
+  cursor: text;
+}
+
+.prose-notes .tiptap p {
+  margin-bottom: 0.4em;
+}
+
+.prose-notes .tiptap h1 {
+  font-size: 1.35rem;
+  font-weight: 680;
+  letter-spacing: -0.021em;
+  line-height: 1.2;
+  margin-bottom: 0.45em;
+  margin-top: 0.85em;
+  color: #ffffff;
+}
+
+.prose-notes .tiptap h2 {
+  font-size: 1.12rem;
+  font-weight: 640;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  margin-bottom: 0.4em;
+  margin-top: 0.75em;
+  color: #ffffff;
+}
+
+.prose-notes .tiptap h3 {
+  font-size: 0.97rem;
+  font-weight: 620;
+  letter-spacing: -0.009em;
+  line-height: 1.3;
+  margin-bottom: 0.3em;
+  margin-top: 0.65em;
+  color: #ffffff;
+}
+
+.prose-notes .tiptap ul {
+  padding-left: 1.25rem;
+  margin-bottom: 0.4em;
+  list-style-type: disc;
+}
+
+.prose-notes .tiptap ol {
+  padding-left: 1.25rem;
+  margin-bottom: 0.4em;
+  list-style-type: decimal;
+}
+
+.prose-notes .tiptap ul ::marker {
+  color: var(--primary);
+}
+
+.prose-notes .tiptap ol ::marker {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.prose-notes .tiptap li {
+  margin-bottom: 0.15em;
+}
+
+.prose-notes .tiptap li p {
+  margin-bottom: 0;
+}
+
+.prose-notes .tiptap strong {
+  font-weight: 700;
+}
+
+.prose-notes .tiptap em {
+  font-style: italic;
+}
+
+.prose-notes .tiptap s {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.prose-notes .tiptap u {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--primary);
+}
+
+.prose-notes .tiptap code {
+  background: rgba(196, 154, 26, 0.15);
+  color: #e8c843;
+  padding: 0.15em 0.35em;
+  border-radius: 0.25rem;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.85em;
+}
+
+.prose-notes .tiptap pre {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5em;
+  overflow-x: auto;
+}
+
+.prose-notes .tiptap pre code {
+  background: none;
+  color: var(--foreground);
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.85em;
+}
+
+.prose-notes .tiptap img {
+  height: 256px;
+  width: auto;
+  border-radius: 0.5rem;
+  margin: 0.5em 0;
+  cursor: zoom-in;
+  transition: opacity 0.15s;
+}
+
+.prose-notes .tiptap img:hover {
+  opacity: 0.85;
+}
+
+.prose-notes .tiptap a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.prose-notes .tiptap blockquote {
+  border-left: 3px solid var(--primary);
+  padding-left: 1rem;
+  margin-left: 0;
+  margin-bottom: 0.5em;
+  color: var(--muted-foreground);
+}
+
+.prose-notes .tiptap hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin: 1em 0;
+}
+
+.prose-notes .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  opacity: 0.3;
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  MARKDOWN SOURCE EDITOR                                    */
+/* ═══════════════════════════════════════════════════════════ */
+
+.markdown-source-editor {
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--foreground);
+  caret-color: var(--primary);
+  tab-size: 2;
+}
+
+.markdown-source-editor::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.3;
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  SCROLLBARS — overlay style, quiet until hovered            */
+/* ═══════════════════════════════════════════════════════════ */
+
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+*:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.24);
+  background-clip: content-box;
+}
+
+/* A soft mask at the list's bottom edge, so a half-visible row reads as
+   "there is more" instead of a clipped mistake. */
+.list-fade {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent 100%);
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  SCROLL EDGE — a soft fade where content meets chrome,      */
+/*  instead of a hard rule that is always there                */
+/* ═══════════════════════════════════════════════════════════ */
+
+.scroll-edge {
+  border-bottom: 1px solid transparent;
+  transition: border-color 200ms var(--ease-out-soft);
+}
+
+.scroll-edge[data-scrolled="true"] {
+  border-bottom-color: var(--separator);
+}

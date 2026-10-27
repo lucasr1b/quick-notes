@@ -1,0 +1,11 @@
+# electron-builder uses .npmignore over .gitignore when present.
+# We need out/ and electron/ in the build, so only exclude dev artifacts.
+.next/
+dist-electron/
+src/
+*.tsbuildinfo
+next-env.d.ts
+next.config.ts
+tsconfig.json
+postcss.config.mjs
+.DS_Store
