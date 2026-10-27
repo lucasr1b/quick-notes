@@ -177,6 +177,8 @@ export function StickyNoteEditor() {
   const [paletteQuery, setPaletteQuery] = useState("");
   const [highlightIdx, setHighlightIdx] = useState(0);
   const [browserIdx, setBrowserIdx] = useState(0);
+  // true when the mouse put the highlight where it is; the row actions only show then
+  const [browserPointer, setBrowserPointer] = useState(false);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout>(undefined);
   // id of the note the editor currently holds. Until this matches the active
@@ -736,6 +738,7 @@ export function StickyNoteEditor() {
       // eslint-disable-next-line @typescript-eslint/no-use-before-define
       const idx = filteredNotes.findIndex((n) => n.id === activeNoteId);
       setBrowserIdx(idx >= 0 ? idx : 0);
+      setBrowserPointer(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showBrowser]);
@@ -810,8 +813,8 @@ export function StickyNoteEditor() {
 
       if (showBrowser && !meta) {
         const fn = filteredNotesRef.current;
-        if (e.key === "ArrowDown") { e.preventDefault(); setBrowserIdx((i) => Math.min(i + 1, fn.length - 1)); }
-        if (e.key === "ArrowUp") { e.preventDefault(); setBrowserIdx((i) => Math.max(i - 1, 0)); }
+        if (e.key === "ArrowDown") { e.preventDefault(); setBrowserPointer(false); setBrowserIdx((i) => Math.min(i + 1, fn.length - 1)); }
+        if (e.key === "ArrowUp") { e.preventDefault(); setBrowserPointer(false); setBrowserIdx((i) => Math.max(i - 1, 0)); }
         if (e.key === "Enter") {
           const note = fn[browserIdxRef.current];
           if (note) { e.preventDefault(); switchNote(note.id); }
@@ -1069,13 +1072,14 @@ export function StickyNoteEditor() {
                       {action.dividerBefore && idx > 0 && (
                         <div className="mx-2.5 my-1 h-px bg-[var(--separator)]" />
                       )}
+                      {/* mousemove, not mouseenter, and no :hover row: see the notes list below */}
                       <button
                         onClick={action.action}
-                        onMouseEnter={() => setHighlightIdx(idx)}
+                        onMouseMove={() => setHighlightIdx(idx)}
                         className={`w-full flex items-center gap-2.5 px-2.5 h-[30px] rounded-[7px] text-left transition-colors duration-75 ${
                           isHighlighted
                             ? "bg-[var(--material-control-active)] text-foreground"
-                            : "text-foreground/75 hover:bg-[var(--material-control)]"
+                            : "text-foreground/75"
                         }`}
                       >
                         <Icon
@@ -1136,18 +1140,22 @@ export function StickyNoteEditor() {
                 {filteredNotes.map((note, idx) => {
                   const isCurrent = note.id === activeNoteId;
                   const isHighlighted = idx === browserIdx;
+                  // One highlight shared by mouse and arrow keys, so there is never a
+                  // separate :hover row. mousemove (not mouseenter) so rows scrolling
+                  // under a still pointer do not take the highlight back from the keys.
+                  const showActions = isHighlighted && browserPointer;
                   return (
                     <button
                       key={note.id}
                       data-browser-idx={idx}
                       onClick={() => switchNote(note.id)}
-                      onMouseEnter={() => setBrowserIdx(idx)}
-                      className={`group relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-[7px] text-left transition-colors duration-100 ${
+                      onMouseMove={() => { setBrowserIdx(idx); setBrowserPointer(true); }}
+                      className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-[7px] text-left transition-colors duration-100 ${
                         isHighlighted
                           ? "bg-[var(--material-control-active)]"
                           : isCurrent
                             ? "bg-[var(--material-control)]"
-                            : "hover:bg-[var(--material-control)]"
+                            : ""
                       }`}
                     >
 
@@ -1165,11 +1173,11 @@ export function StickyNoteEditor() {
                         </div>
                       </div>
 
-                      <span className="type-meta text-white/30 shrink-0 tabular-nums group-hover:opacity-0 transition-opacity">
+                      <span className={`type-meta text-white/30 shrink-0 tabular-nums transition-opacity ${showActions ? "opacity-0" : ""}`}>
                         {timeAgo(note.updatedAt)}
                       </span>
 
-                      <div className="absolute right-2.5 flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className={`absolute right-2.5 flex items-center gap-0.5 shrink-0 transition-opacity ${showActions ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
                         <span
                           onClick={(e) => { e.stopPropagation(); togglePin(note.id); }}
                           className={`h-[22px] w-[22px] flex items-center justify-center rounded-[6px] transition-colors cursor-pointer ${
