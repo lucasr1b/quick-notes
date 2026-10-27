@@ -157,6 +157,17 @@ button,
     0 2px 8px -2px rgba(0, 0, 0, 0.4);
 }
 
+/* ⌘⇧C confirmation: rises in like the panels, holds, then fades */
+@keyframes copied-pill {
+  0% { opacity: 0; transform: translateY(4px) scale(0.97); }
+  14%, 78% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: none; }
+}
+.copied-pill {
+  translate: -50% 0;
+  animation: copied-pill 1500ms var(--ease-spring) forwards;
+}
+
 @keyframes materialize {
   from {
     opacity: 0;
@@ -198,6 +209,13 @@ button,
   button:active:not(:disabled),
   [role="button"]:active {
     transform: none;
+  }
+  @keyframes copied-pill-fade {
+    0%, 100% { opacity: 0; }
+    14%, 78% { opacity: 1; }
+  }
+  .copied-pill {
+    animation-name: copied-pill-fade;
   }
 }
 

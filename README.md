@@ -21,6 +21,7 @@ Requires macOS 12 or later.
 | ⌘P | Browse and search notes |
 | ⌘K | Command palette |
 | ⌘R | Rename the current note |
+| ⌘⇧C | Copy the selection as Markdown (the whole note if nothing is selected) |
 | esc | Close a panel |
 
 Hold ⌘ on an empty note to see the shortcuts. The global shortcut can be changed from the menu bar icon under Shortcut.

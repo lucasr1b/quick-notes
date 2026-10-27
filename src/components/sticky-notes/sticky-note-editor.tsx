@@ -167,6 +167,8 @@ export function StickyNoteEditor() {
   const [dragOver, setDragOver] = useState(false);
   const [editorScrolled, setEditorScrolled] = useState(false);
   const [metaHeld, setMetaHeld] = useState(false);
+  // timestamp of the last ⌘⇧C, doubling as the key that restarts the pill
+  const [copiedAt, setCopiedAt] = useState(0);
   const [dragY, setDragY] = useState(0);
   const dragCountRef = useRef(0);
   const editorAreaRef = useRef<HTMLDivElement>(null);
@@ -501,6 +503,36 @@ export function StickyNoteEditor() {
     setPaletteQuery("");
   }, [activeNote]);
 
+  /**
+   * ⌘⇧C: the selection as Markdown, or the whole note when nothing is
+   * selected. Plain ⌘C stays as it is (rich text plus plain text).
+   */
+  const copyAsMarkdown = useCallback(() => {
+    let md = "";
+    const el = document.activeElement;
+    if (el instanceof HTMLTextAreaElement) {
+      // Markdown view: the textarea already holds the source
+      md = el.selectionStart !== el.selectionEnd ? el.value.slice(el.selectionStart, el.selectionEnd) : el.value;
+    } else if (editor) {
+      const markdown = (editor.storage as unknown as {
+        markdown?: { serializer?: { serialize: (content: unknown) => string }; getMarkdown?: () => string };
+      }).markdown;
+      const { selection } = editor.state;
+      md = selection.empty
+        ? markdown?.getMarkdown?.() ?? editor.getText()
+        : markdown?.serializer?.serialize(selection.content().content) ?? editor.state.doc.textBetween(selection.from, selection.to, "\n");
+    }
+    if (!md.trim()) return;
+    navigator.clipboard.writeText(md);
+    setCopiedAt(Date.now());
+  }, [editor]);
+
+  useEffect(() => {
+    if (!copiedAt) return;
+    const t = setTimeout(() => setCopiedAt(0), 1500);
+    return () => clearTimeout(t);
+  }, [copiedAt]);
+
   const exportAllNotes = useCallback(() => {
     setShowPalette(false);
     setPaletteQuery("");
@@ -789,6 +821,12 @@ export function StickyNoteEditor() {
         }
       }
 
+      if (meta && e.shiftKey && e.code === "KeyC" && !inlineRenaming && !showPalette && !showBrowser) {
+        e.preventDefault();
+        copyAsMarkdown();
+        return;
+      }
+
       if (meta && !e.shiftKey && !inlineRenaming) {
         if (e.key === "k") {
           e.preventDefault();
@@ -820,7 +858,7 @@ export function StickyNoteEditor() {
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [showBrowser, showPalette, inlineRenaming, filteredCommands, highlightIdx, addNote, switchNote]);
+  }, [showBrowser, showPalette, inlineRenaming, filteredCommands, highlightIdx, addNote, switchNote, copyAsMarkdown]);
 
   /* ─── Filtered notes for browser ─── */
 
@@ -971,6 +1009,17 @@ export function StickyNoteEditor() {
           </div>
         )}
       </div>
+
+      {copiedAt > 0 && (
+        <div
+          key={copiedAt}
+          role="status"
+          className="copied-pill surface-elevated type-meta pointer-events-none absolute left-1/2 z-50 rounded-full px-2.5 py-1 text-white/80"
+          style={{ bottom: showToolbar ? 56 : 16 }}
+        >
+          Copied as Markdown
+        </div>
+      )}
 
       {/* ─── Toolbar ─── */}
       {showToolbar && (
