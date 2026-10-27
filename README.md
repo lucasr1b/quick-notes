@@ -42,6 +42,12 @@ Every note is its own file in `~/Documents/quick-notes`:
 
 Writes are atomic, so a crash mid-save cannot corrupt a note, and a damaged file only costs that one note. To keep them somewhere else, such as iCloud Drive or Dropbox, choose Notes Folder > Change Folder… from the menu bar icon. Your notes are copied to the new folder and the old one is left as a backup. Picking a folder that already has Quick Notes notes in it opens those instead. `QUICK_NOTES_VAULT` overrides the setting if you'd rather use an environment variable. [STORAGE.md](STORAGE.md) has the details.
 
+## Moving to a new Mac
+
+Open the command palette (⌘K) and choose Export All Notes… to save everything (notes, their order and images) as one `.zip`. On the other Mac, install Quick Notes and choose Import Notes… with that file. Both are also in the menu bar icon under Notes Folder.
+
+Importing merges rather than replaces: notes you don't have are added, and when both Macs have changed the same note the newer copy wins, with the older one kept in `versions/`. Importing the same file twice does nothing.
+
 ## Building from source
 
 ```bash

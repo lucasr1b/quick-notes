@@ -251,7 +251,107 @@ function createVault(vaultPath) {
     return copied;
   };
 
-  return { vault, notesDir, imagesDir, trashDir, versionsDir, list, saveAll, trash, migrateFrom, adoptImages };
+  /**
+   * Copies what another Mac needs into `dir`: the notes, their order and the
+   * images. Trash, versions and backups stay behind.
+   */
+  const exportInto = (dir) => {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.cpSync(notesDir, path.join(dir, "notes"), { recursive: true });
+    fs.cpSync(imagesDir, path.join(dir, "images"), { recursive: true });
+    if (fs.existsSync(orderFile)) fs.copyFileSync(orderFile, path.join(dir, "order.json"));
+    return fs.readdirSync(notesDir).filter((n) => n.endsWith(".json")).length;
+  };
+
+  /**
+   * Merges an exported vault (or any folder with a notes/ dir) into this one.
+   * New notes are added after the current ones. When both sides have the same
+   * note with different contents, the newer one wins and the local copy is
+   * kept in versions/ first, so an import can never lose a note.
+   */
+  const importFrom = (dir) => {
+    const stats = { added: 0, updated: 0, unchanged: 0, images: 0, firstId: null };
+
+    const incoming = [];
+    for (const name of fs.readdirSync(path.join(dir, "notes"))) {
+      if (!name.endsWith(".json")) continue;
+      try {
+        const note = JSON.parse(fs.readFileSync(path.join(dir, "notes", name), "utf8"));
+        if (isSafeId(note?.id) && typeof note === "object") incoming.push(note);
+      } catch (err) {
+        console.error("[quick-notes] skipping unreadable imported note", name, err);
+      }
+    }
+    // keep the exporting Mac's order where it has one
+    let order = [];
+    try {
+      const parsed = JSON.parse(fs.readFileSync(path.join(dir, "order.json"), "utf8"));
+      if (Array.isArray(parsed)) order = parsed;
+    } catch {
+      // no order file, fall back to newest first
+    }
+    const rank = (id) => {
+      const i = order.indexOf(id);
+      return i < 0 ? Infinity : i;
+    };
+    incoming.sort(
+      (a, b) =>
+        rank(a.id) - rank(b.id) ||
+        String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? "")),
+    );
+
+    const merged = list();
+    const indexById = new Map(merged.map((n, i) => [n.id, i]));
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+
+    for (const note of incoming) {
+      const i = indexById.get(note.id);
+      if (i === undefined) {
+        indexById.set(note.id, merged.length);
+        merged.push(note);
+        stats.added += 1;
+        stats.firstId ??= note.id;
+        continue;
+      }
+      const local = merged[i];
+      if (JSON.stringify(local) === JSON.stringify(note)) {
+        stats.unchanged += 1;
+        continue;
+      }
+      if (String(note.updatedAt ?? "") > String(local.updatedAt ?? "")) {
+        fs.writeFileSync(
+          path.join(versionsDir, `${stamp}-${note.id}.json`),
+          JSON.stringify(local, null, 2),
+          "utf8",
+        );
+        merged[i] = note;
+        stats.updated += 1;
+      } else {
+        stats.unchanged += 1; // this Mac's copy is newer
+      }
+    }
+
+    const srcImages = path.join(dir, "images");
+    if (fs.existsSync(srcImages)) {
+      for (const name of fs.readdirSync(srcImages)) {
+        if (!/^[\w.-]+$/.test(name)) continue;
+        const target = path.join(imagesDir, name);
+        if (fs.existsSync(target)) continue;
+        try {
+          fs.copyFileSync(path.join(srcImages, name), target);
+          stats.images += 1;
+        } catch (err) {
+          console.error("[quick-notes] could not import image", name, err);
+        }
+      }
+    }
+
+    pruneVersions();
+    saveAll(merged);
+    return stats;
+  };
+
+  return { vault, notesDir, imagesDir, trashDir, versionsDir, list, saveAll, trash, migrateFrom, adoptImages, exportInto, importFrom };
 }
 
 module.exports = { createVault };

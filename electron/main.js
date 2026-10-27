@@ -14,6 +14,8 @@ const {
 } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
+const { execFileSync } = require("child_process");
 const Store = require("electron-store");
 const { createVault } = require("./vault");
 
@@ -446,6 +448,9 @@ function buildTrayMenu() {
       { type: "separator" },
       { label: "Show in Finder", click: () => shell.openPath(vault.vault) },
       { label: "Change Folder…", enabled: !fromEnv, click: () => chooseNotesFolder() },
+      { type: "separator" },
+      { label: "Export All Notes…", click: () => exportAllNotes() },
+      { label: "Import Notes…", click: () => importNotes() },
     ],
   });
 
@@ -560,6 +565,115 @@ async function chooseNotesFolder() {
   isQuitting = true;
   app.relaunch();
   app.exit(0);
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  EXPORT / IMPORT                                           */
+/* ═══════════════════════════════════════════════════════════ */
+
+// Attach dialogs to the note window when there is one: the windows float above
+// everything, so a free-standing dialog can open behind them.
+const showDialog = (fn, parent, opts) => (parent ? fn(parent, opts) : fn(opts));
+
+/**
+ * Everything another Mac needs, as one zip: "Quick Notes/" holding notes/,
+ * images/, order.json and a manifest. Zipped with ditto, which ships with
+ * macOS, so there is no archive library to bundle.
+ */
+async function exportAllNotes(parent) {
+  const day = new Date().toISOString().slice(0, 10);
+  const { canceled, filePath } = await showDialog(dialog.showSaveDialog, parent, {
+    title: "Export All Notes",
+    buttonLabel: "Export",
+    defaultPath: path.join(app.getPath("desktop"), `Quick Notes ${day}.zip`),
+    filters: [{ name: "Zip archive", extensions: ["zip"] }],
+  });
+  if (canceled || !filePath) return null;
+
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "quick-notes-export-"));
+  const stage = path.join(tmp, "Quick Notes");
+  try {
+    const notes = vault.exportInto(stage);
+    const manifest = {
+      app: "quick-notes",
+      format: 1,
+      version: app.getVersion(),
+      exportedAt: new Date().toISOString(),
+      notes,
+    };
+    fs.writeFileSync(path.join(stage, "manifest.json"), JSON.stringify(manifest, null, 2));
+    fs.rmSync(filePath, { force: true });
+    execFileSync("/usr/bin/ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", stage, filePath]);
+    shell.showItemInFolder(filePath);
+    return { notes };
+  } catch (err) {
+    dialog.showErrorBox("Couldn't export your notes", err.message);
+    return null;
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+/** The folder inside an unzipped export that holds notes/, if any. */
+function findExportRoot(dir) {
+  if (fs.existsSync(path.join(dir, "notes"))) return dir;
+  for (const name of fs.readdirSync(dir)) {
+    const sub = path.join(dir, name);
+    if (name === "__MACOSX" || !fs.statSync(sub).isDirectory()) continue;
+    if (fs.existsSync(path.join(sub, "notes"))) return sub;
+  }
+  return null;
+}
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/** Merges a zip from Export All Notes into this vault. See vault.importFrom. */
+async function importNotes(parent) {
+  const { canceled, filePaths } = await showDialog(dialog.showOpenDialog, parent, {
+    title: "Import Notes",
+    buttonLabel: "Import",
+    defaultPath: app.getPath("desktop"),
+    properties: ["openFile"],
+    filters: [{ name: "Quick Notes export", extensions: ["zip"] }],
+  });
+  if (canceled || !filePaths[0]) return null;
+
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "quick-notes-import-"));
+  try {
+    execFileSync("/usr/bin/ditto", ["-x", "-k", filePaths[0], tmp]);
+    const root = findExportRoot(tmp);
+    if (!root) {
+      await showDialog(dialog.showMessageBox, parent, {
+        type: "warning",
+        message: "There are no notes in that zip",
+        detail: "Pick a .zip made with Export All Notes.",
+      });
+      return null;
+    }
+
+    const stats = vault.importFrom(root);
+    buildTrayMenu();
+    broadcastNotesUpdated();
+
+    const changed = stats.added + stats.updated;
+    const detail = [
+      stats.added && `${plural(stats.added, "new note")} added.`,
+      stats.updated && `${plural(stats.updated, "note")} replaced by a newer copy. The older copies are in the versions folder.`,
+      stats.unchanged && `${plural(stats.unchanged, "note")} already up to date.`,
+      stats.images && `${plural(stats.images, "image")} copied.`,
+    ].filter(Boolean);
+    await showDialog(dialog.showMessageBox, parent, {
+      type: "info",
+      message: changed ? `Imported ${plural(changed, "note")}` : "All of these notes were already here",
+      detail: detail.join("\n"),
+    });
+    return stats;
+  } catch (err) {
+    dialog.showErrorBox("Couldn't import those notes", err.message);
+    return null;
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════ */
@@ -717,6 +831,14 @@ ipcMain.handle("notes:save", (event, notes) => {
   buildTrayMenu();
   const senderId = windowIdFromSender(event);
   broadcastNotesUpdated(senderId);
+});
+
+ipcMain.handle("notes:export", (event) => {
+  return exportAllNotes(BrowserWindow.fromWebContents(event.sender));
+});
+
+ipcMain.handle("notes:import", (event) => {
+  return importNotes(BrowserWindow.fromWebContents(event.sender));
 });
 
 ipcMain.handle("window:getState", (event) => {

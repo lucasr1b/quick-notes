@@ -42,9 +42,27 @@ QUICK_NOTES_VAULT=~/Drive/quick-notes npm run electron:dev
 electron-store still holds app settings and window state, which are cheap to
 lose and meaningless outside the app.
 
+## Export and import
+
+Export All Notes… (⌘K or the menu bar) zips `notes/`, `images/`, `order.json`
+and a `manifest.json` into one folder, `Quick Notes/`, using macOS's own
+`ditto`. Trash, versions and backups stay behind.
+
+Import Notes… unzips to a temp folder and merges with `vault.importFrom()`:
+
+- a note this vault doesn't have is added after the current notes, in the
+  exporting Mac's order;
+- an identical note is skipped;
+- when both have the same note with different contents, the newer
+  `updatedAt` wins and the local copy is written to `versions/` first;
+- images are copied only if the name is free (names are unique per paste).
+
+Nothing is ever trashed by an import, and importing the same zip twice is a
+no-op.
+
 ## Code
 
 | Path | Purpose |
 |---|---|
-| `electron/vault.js` | The vault: list, save, trash, migrate, atomic writes |
+| `electron/vault.js` | The vault: list, save, trash, migrate, atomic writes, export, import |
 | `electron/main.js` | Calls `vault.list()` / `vault.saveAll()` behind the same IPC |

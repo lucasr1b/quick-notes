@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Notes persistence
   loadNotes: () => ipcRenderer.invoke("notes:load"),
   saveNotes: (notes) => ipcRenderer.invoke("notes:save", notes),
+  exportAllNotes: () => ipcRenderer.invoke("notes:export"),
+  importNotes: () => ipcRenderer.invoke("notes:import"),
 
   // Per-window state
   getWindowId: () => getWindowIdFromUrl(),

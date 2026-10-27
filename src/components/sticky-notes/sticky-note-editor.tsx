@@ -20,7 +20,7 @@ import { Markdown } from "tiptap-markdown";
 import {
   Plus, Search, Pin, Trash2, Layers, Command,
   Copy, FileText, Download, ArrowUp, ArrowDown,
-  Clipboard, FileCode, X, AppWindow,
+  Clipboard, FileCode, X, AppWindow, Archive, ArchiveRestore,
 } from "lucide-react";
 import { NotesToolbar } from "./notes-toolbar";
 import { useWindowState } from "@/hooks/use-window-state";
@@ -49,6 +49,8 @@ interface PaletteCommand {
 interface ElectronNotesAPI {
   loadNotes: () => Promise<StickyNote[]>;
   saveNotes: (notes: StickyNote[]) => Promise<void>;
+  exportAllNotes?: () => Promise<{ notes: number } | null>;
+  importNotes?: () => Promise<{ added: number; updated: number; firstId: string | null } | null>;
   onNoteCreated?: (callback: (noteId: string) => void) => () => void;
   onJumpToNote?: (callback: (noteId: string) => void) => () => void;
   onNotesUpdated?: (callback: () => void) => () => void;
@@ -499,6 +501,24 @@ export function StickyNoteEditor() {
     setPaletteQuery("");
   }, [activeNote]);
 
+  const exportAllNotes = useCallback(() => {
+    setShowPalette(false);
+    setPaletteQuery("");
+    getAPI()?.exportAllNotes?.();
+  }, []);
+
+  const importNotes = useCallback(async () => {
+    setShowPalette(false);
+    setPaletteQuery("");
+    const stats = await getAPI()?.importNotes?.();
+    // A fresh install opens on an empty note; show what just came in instead.
+    // The main process broadcasts the reload, so the note arrives in state
+    // on its own and the editor hydrates once it does.
+    if (stats?.firstId && !getPlainText(activeNote?.content ?? null).trim()) {
+      setNoteId(stats.firstId);
+    }
+  }, [activeNote, setNoteId]);
+
   const exportNote = useCallback(() => {
     if (!activeNote) return;
     const text = getPlainText(activeNote.content);
@@ -634,13 +654,15 @@ export function StickyNoteEditor() {
       { id: "pin", icon: Pin, label: activeNote?.pinned ? "Unpin Note" : "Pin Note", action: () => { if (activeNoteId) togglePin(activeNoteId); setShowPalette(false); setPaletteQuery(""); } },
       { id: "copy", icon: Clipboard, label: "Copy as Plain Text", dividerBefore: true, action: copyNoteAsText },
       { id: "export", icon: Download, label: "Export as Text...", action: exportNote },
+      { id: "export-all", icon: Archive, label: "Export All Notes...", action: exportAllNotes },
+      { id: "import", icon: ArchiveRestore, label: "Import Notes...", action: importNotes },
       { id: "toggle-toolbar", icon: FileCode, label: "Toggle Editor Tools", action: toggleToolbar },
       { id: "up", icon: ArrowUp, label: "Move Note Up", dividerBefore: true, action: () => { moveNoteUp(); setShowPalette(false); setPaletteQuery(""); } },
       { id: "down", icon: ArrowDown, label: "Move Note Down", action: () => { moveNoteDown(); setShowPalette(false); setPaletteQuery(""); } },
       { id: "close-window", icon: X, label: "Close Window", dividerBefore: true, action: closeCurrentWindow },
       { id: "delete", icon: Trash2, label: "Delete Note", action: () => { if (activeNoteId) deleteNote(activeNoteId); setShowPalette(false); setPaletteQuery(""); } },
     ],
-    [showToolbar, toggleToolbar, addNote, openNewWindow, duplicateNote, activeNote, activeNoteId, togglePin, copyNoteAsText, exportNote, moveNoteUp, moveNoteDown, closeCurrentWindow, deleteNote]
+    [showToolbar, toggleToolbar, addNote, openNewWindow, duplicateNote, activeNote, activeNoteId, togglePin, copyNoteAsText, exportNote, exportAllNotes, importNotes, moveNoteUp, moveNoteDown, closeCurrentWindow, deleteNote]
   );
 
   const filteredCommands = useMemo(() => {
