@@ -92,6 +92,7 @@
           ]
         }
       ],
+      "artifactName": "Quick-Notes-${version}-${arch}-mac.${ext}",
       "category": "public.app-category.productivity",
       "icon": "build/icon.png",
       "hardenedRuntime": true,
